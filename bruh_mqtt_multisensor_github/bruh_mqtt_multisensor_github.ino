@@ -69,8 +69,6 @@ int OTAport = 8266;
 
 
 /**************************** PIN DEFINITIONS ********************************************/
-
-#define PIRPIN    D5
 #define DHTPIN    D7
 #define DHTTYPE   DHT22
 
@@ -83,10 +81,6 @@ float tempValue;
 
 float diffHUM = 1;
 float humValue;
-
-int pirValue;
-int pirStatus;
-String motionStatus;
 
 char message_buff[100];
 
@@ -139,7 +133,6 @@ void setup() {
 
   Serial.begin(115200);
 
-  pinMode(PIRPIN, INPUT);
   pinMode(DHTPIN, INPUT);
 
   Serial.begin(115200);
@@ -344,7 +337,6 @@ void sendState() {
 
   root["brightness"] = brightness;
   root["humidity"] = (String)humValue;
-  root["motion"] = (String)motionStatus;
   root["temperature"] = (String)tempValue;
   root["heatIndex"] = (String)dht.computeHeatIndex(tempValue, humValue, IsFahrenheit);
 
@@ -402,21 +394,6 @@ void loop() {
 
     float newTempValue = dht.readTemperature(IsFahrenheit);
     float newHumValue = dht.readHumidity();
-
-    //PIR CODE
-    pirValue = digitalRead(PIRPIN); //read state of the
-
-    if (pirValue == LOW && pirStatus != 1) {
-      motionStatus = "standby";
-      sendState();
-      pirStatus = 1;
-    }
-
-    else if (pirValue == HIGH && pirStatus != 2) {
-      motionStatus = "motion detected";
-      sendState();
-      pirStatus = 2;
-    }
 
     delay(100);
 
