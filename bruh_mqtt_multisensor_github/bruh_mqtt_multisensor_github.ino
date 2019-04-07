@@ -69,21 +69,14 @@ int OTAport = 8266;
 
 
 /**************************** PIN DEFINITIONS ********************************************/
-const int redPin = D1;
-const int greenPin = D2;
-const int bluePin = D3;
+
 #define PIRPIN    D5
 #define DHTPIN    D7
 #define DHTTYPE   DHT22
-#define LDRPIN    A0
 
 
 
 /**************************** SENSOR DEFINITIONS *******************************************/
-float ldrValue;
-int LDR;
-float calcLDR;
-float diffLDR = 25;
 
 float diffTEMP = 0.2;
 float tempValue;
@@ -148,7 +141,6 @@ void setup() {
 
   pinMode(PIRPIN, INPUT);
   pinMode(DHTPIN, INPUT);
-  pinMode(LDRPIN, INPUT);
 
   Serial.begin(115200);
   delay(10);
@@ -353,7 +345,6 @@ void sendState() {
   root["brightness"] = brightness;
   root["humidity"] = (String)humValue;
   root["motion"] = (String)motionStatus;
-  root["ldr"] = (String)LDR;
   root["temperature"] = (String)tempValue;
   root["heatIndex"] = (String)dht.computeHeatIndex(tempValue, humValue, IsFahrenheit);
 
@@ -367,22 +358,6 @@ void sendState() {
 
 
 
-/********************************** START SET COLOR *****************************************/
-void setColor(int inR, int inG, int inB) {
-  analogWrite(redPin, inR);
-  analogWrite(greenPin, inG);
-  analogWrite(bluePin, inB);
-
-  Serial.println("Setting LEDs:");
-  Serial.print("r: ");
-  Serial.print(inR);
-  Serial.print(", g: ");
-  Serial.print(inG);
-  Serial.print(", b: ");
-  Serial.println(inB);
-}
-
-
 
 /********************************** START RECONNECT*****************************************/
 void reconnect() {
@@ -393,7 +368,6 @@ void reconnect() {
     if (client.connect(SENSORNAME, mqtt_user, mqtt_password)) {
       Serial.println("connected");
       client.subscribe(light_set_topic);
-      setColor(0, 0, 0);
       sendState();
     } else {
       Serial.print("failed, rc=");
@@ -456,81 +430,6 @@ void loop() {
       sendState();
     }
 
-
-    int newLDR = analogRead(LDRPIN);
-
-    if (checkBoundSensor(newLDR, LDR, diffLDR)) {
-      LDR = newLDR;
-      sendState();
-    }
-
-  }
-
-  if (flash) {
-    if (startFlash) {
-      startFlash = false;
-      flashStartTime = millis();
-    }
-
-    if ((millis() - flashStartTime) <= flashLength) {
-      if ((millis() - flashStartTime) % 1000 <= 500) {
-        setColor(flashRed, flashGreen, flashBlue);
-      }
-      else {
-        setColor(0, 0, 0);
-        // If you'd prefer the flashing to happen "on top of"
-        // the current color, uncomment the next line.
-        // setColor(realRed, realGreen, realBlue);
-      }
-    }
-    else {
-      flash = false;
-      setColor(realRed, realGreen, realBlue);
-    }
-  }
-
-  if (startFade) {
-    // If we don't want to fade, skip it.
-    if (transitionTime == 0) {
-      setColor(realRed, realGreen, realBlue);
-
-      redVal = realRed;
-      grnVal = realGreen;
-      bluVal = realBlue;
-
-      startFade = false;
-    }
-    else {
-      loopCount = 0;
-      stepR = calculateStep(redVal, realRed);
-      stepG = calculateStep(grnVal, realGreen);
-      stepB = calculateStep(bluVal, realBlue);
-
-      inFade = true;
-    }
-  }
-
-  if (inFade) {
-    startFade = false;
-    unsigned long now = millis();
-    if (now - lastLoop > transitionTime) {
-      if (loopCount <= 1020) {
-        lastLoop = now;
-
-        redVal = calculateVal(stepR, redVal, loopCount);
-        grnVal = calculateVal(stepG, grnVal, loopCount);
-        bluVal = calculateVal(stepB, bluVal, loopCount);
-
-        setColor(redVal, grnVal, bluVal); // Write current values to LED pins
-
-        Serial.print("Loop count: ");
-        Serial.println(loopCount);
-        loopCount++;
-      }
-      else {
-        inFade = false;
-      }
-    }
   }
 }
 
