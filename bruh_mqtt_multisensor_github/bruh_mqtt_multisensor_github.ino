@@ -43,23 +43,21 @@
 #define IsFahrenheit true //to use celsius change to false
 
 /************ WIFI and MQTT INFORMATION (CHANGE THESE FOR YOUR SETUP) ******************/
-#define wifi_ssid "YourSSID" //type your WIFI information inside the quotes
-#define wifi_password "YourWIFIpassword"
-#define mqtt_server "your.mqtt.server.ip"
-#define mqtt_user "yourMQTTusername" 
-#define mqtt_password "yourMQTTpassword"
+#define wifi_ssid "Wub a lub a dub dub" //type your WIFI information inside the quotes
+#define wifi_password "qwerty99"
+#define mqtt_server "192.168.1.135"
+#define mqtt_user "chris" 
+#define mqtt_password "Chrissutt0n"
 #define mqtt_port 1883
 
 
 
 /************* MQTT TOPICS (change these topics as you wish)  **************************/
-#define light_state_topic "bruh/sensornode1"
-#define light_set_topic "bruh/sensornode1/set"
+#define light_state_topic "motion/somewhere"
+#define light_set_topic "motion/somewhere/set"
 
-const char* on_cmd = "ON";
-const char* off_cmd = "OFF";
-
-
+const char* on_cmd = "on";
+const char* off_cmd = "off";
 
 /**************************** FOR OTA **************************************************/
 #define SENSORNAME "sensornode1"
@@ -95,38 +93,6 @@ int calibrationTime = 0;
 const int BUFFER_SIZE = 300;
 
 #define MQTT_MAX_PACKET_SIZE 512
-
-
-/******************************** GLOBALS for fade/flash *******************************/
-byte red = 255;
-byte green = 255;
-byte blue = 255;
-byte brightness = 255;
-
-byte realRed = 0;
-byte realGreen = 0;
-byte realBlue = 0;
-
-bool stateOn = false;
-
-bool startFade = false;
-unsigned long lastLoop = 0;
-int transitionTime = 0;
-bool inFade = false;
-int loopCount = 0;
-int stepR, stepG, stepB;
-int redVal, grnVal, bluVal;
-
-bool flash = false;
-bool startFlash = false;
-int flashLength = 0;
-unsigned long flashStartTime = 0;
-byte flashRed = red;
-byte flashGreen = green;
-byte flashBlue = blue;
-byte flashBrightness = brightness;
-
-
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -215,119 +181,10 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
-
-
 /********************************** START CALLBACK*****************************************/
 void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-
-  char message[length + 1];
-  for (int i = 0; i < length; i++) {
-    message[i] = (char)payload[i];
-  }
-  message[length] = '\0';
-  Serial.println(message);
-
-  if (!processJson(message)) {
-    return;
-  }
-
-  if (stateOn) {
-    // Update lights
-    realRed = map(red, 0, 255, 0, brightness);
-    realGreen = map(green, 0, 255, 0, brightness);
-    realBlue = map(blue, 0, 255, 0, brightness);
-  }
-  else {
-    realRed = 0;
-    realGreen = 0;
-    realBlue = 0;
-  }
-
-  startFade = true;
-  inFade = false; // Kill the current fade
-
   sendState();
 }
-
-
-
-/********************************** START PROCESS JSON*****************************************/
-bool processJson(char* message) {
-  StaticJsonBuffer<BUFFER_SIZE> jsonBuffer;
-
-  JsonObject& root = jsonBuffer.parseObject(message);
-
-  if (!root.success()) {
-    Serial.println("parseObject() failed");
-    return false;
-  }
-
-  if (root.containsKey("state")) {
-    if (strcmp(root["state"], on_cmd) == 0) {
-      stateOn = true;
-    }
-    else if (strcmp(root["state"], off_cmd) == 0) {
-      stateOn = false;
-    }
-  }
-
-  // If "flash" is included, treat RGB and brightness differently
-  if (root.containsKey("flash")) {
-    flashLength = (int)root["flash"] * 1000;
-
-    if (root.containsKey("brightness")) {
-      flashBrightness = root["brightness"];
-    }
-    else {
-      flashBrightness = brightness;
-    }
-
-    if (root.containsKey("color")) {
-      flashRed = root["color"]["r"];
-      flashGreen = root["color"]["g"];
-      flashBlue = root["color"]["b"];
-    }
-    else {
-      flashRed = red;
-      flashGreen = green;
-      flashBlue = blue;
-    }
-
-    flashRed = map(flashRed, 0, 255, 0, flashBrightness);
-    flashGreen = map(flashGreen, 0, 255, 0, flashBrightness);
-    flashBlue = map(flashBlue, 0, 255, 0, flashBrightness);
-
-    flash = true;
-    startFlash = true;
-  }
-  else { // Not flashing
-    flash = false;
-
-    if (root.containsKey("color")) {
-      red = root["color"]["r"];
-      green = root["color"]["g"];
-      blue = root["color"]["b"];
-    }
-
-    if (root.containsKey("brightness")) {
-      brightness = root["brightness"];
-    }
-
-    if (root.containsKey("transition")) {
-      transitionTime = root["transition"];
-    }
-    else {
-      transitionTime = 0;
-    }
-  }
-
-  return true;
-}
-
-
 
 /********************************** START SEND STATE*****************************************/
 void sendState() {
@@ -335,16 +192,7 @@ void sendState() {
 
   JsonObject& root = jsonBuffer.createObject();
 
-  root["state"] = (stateOn) ? on_cmd : off_cmd;
-  JsonObject& color = root.createNestedObject("color");
-  color["r"] = red;
-  color["g"] = green;
-  color["b"] = blue;
-
-
-  root["brightness"] = brightness;
-  root["humidity"] = (String)humValue;
-  root["motion"] = (String)motionStatus;
+  root["motion"] = digitalRead(PIRPIN);
   root["temperature"] = (String)tempValue;
   root["heatIndex"] = (String)dht.computeHeatIndex(tempValue, humValue, IsFahrenheit);
 
@@ -398,107 +246,25 @@ void loop() {
   }
   client.loop();
 
-  if (!inFade) {
+  float newTempValue = dht.readTemperature(IsFahrenheit);
+  float newumValue = dht.readHumidity();
 
-    float newTempValue = dht.readTemperature(IsFahrenheit);
-    float newHumValue = dht.readHumidity();
+  //PIR CODE
+  pirValue = digitalRead(PIRPIN); //read state of the
 
-    //PIR CODE
-    pirValue = digitalRead(PIRPIN); //read state of the
-
-    if (pirValue == LOW && pirStatus != 1) {
-      motionStatus = "standby";
-      sendState();
-      pirStatus = 1;
-    }
-
-    else if (pirValue == HIGH && pirStatus != 2) {
-      motionStatus = "motion detected";
-      sendState();
-      pirStatus = 2;
-    }
-
-    delay(100);
-
-    if (checkBoundSensor(newTempValue, tempValue, diffTEMP)) {
-      tempValue = newTempValue;
-      sendState();
-    }
-
-    if (checkBoundSensor(newHumValue, humValue, diffHUM)) {
-      humValue = newHumValue;
-      sendState();
-    }
-
-  }
-}
-
-
-
-
-/**************************** START TRANSITION FADER *****************************************/
-// From https://www.arduino.cc/en/Tutorial/ColorCrossfader
-/* BELOW THIS LINE IS THE MATH -- YOU SHOULDN'T NEED TO CHANGE THIS FOR THE BASICS
-
-  The program works like this:
-  Imagine a crossfade that moves the red LED from 0-10,
-    the green from 0-5, and the blue from 10 to 7, in
-    ten steps.
-    We'd want to count the 10 steps and increase or
-    decrease color values in evenly stepped increments.
-    Imagine a + indicates raising a value by 1, and a -
-    equals lowering it. Our 10 step fade would look like:
-
-    1 2 3 4 5 6 7 8 9 10
-  R + + + + + + + + + +
-  G   +   +   +   +   +
-  B     -     -     -
-
-  The red rises from 0 to 10 in ten steps, the green from
-  0-5 in 5 steps, and the blue falls from 10 to 7 in three steps.
-
-  In the real program, the color percentages are converted to
-  0-255 values, and there are 1020 steps (255*4).
-
-  To figure out how big a step there should be between one up- or
-  down-tick of one of the LED values, we call calculateStep(),
-  which calculates the absolute gap between the start and end values,
-  and then divides that gap by 1020 to determine the size of the step
-  between adjustments in the value.
-*/
-int calculateStep(int prevValue, int endValue) {
-  int step = endValue - prevValue; // What's the overall gap?
-  if (step) {                      // If its non-zero,
-    step = 1020 / step;          //   divide by 1020
+  if (pirValue == LOW && pirStatus != 1) {
+    motionStatus = "off";
+    sendState();
+    pirStatus = 1;
   }
 
-  return step;
-}
-
-/* The next function is calculateVal. When the loop value, i,
-   reaches the step size appropriate for one of the
-   colors, it increases or decreases the value of that color by 1.
-   (R, G, and B are each calculated separately.)
-*/
-int calculateVal(int step, int val, int i) {
-  if ((step) && i % step == 0) { // If step is non-zero and its time to change a value,
-    if (step > 0) {              //   increment the value if step is positive...
-      val += 1;
-    }
-    else if (step < 0) {         //   ...or decrement it if step is negative
-      val -= 1;
-    }
+  else if (pirValue == HIGH && pirStatus != 2) {
+    motionStatus = "on";
+    sendState();
+    pirStatus = 2;
   }
+  delay(1000);
 
-  // Defensive driving: make sure val stays in the range 0-255
-  if (val > 255) {
-    val = 255;
-  }
-  else if (val < 0) {
-    val = 0;
-  }
-
-  return val;
 }
 
 /****reset***/
