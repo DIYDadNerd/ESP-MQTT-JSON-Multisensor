@@ -38,16 +38,15 @@
 #include <ArduinoOTA.h>
 #include <ArduinoJson.h>
 
-
 /************ TEMP SETTINGS (CHANGE THIS FOR YOUR SETUP) *******************************/
 #define IsFahrenheit true //to use celsius change to false
 
 /************ WIFI and MQTT INFORMATION (CHANGE THESE FOR YOUR SETUP) ******************/
-#define wifi_ssid "Wub a lub a dub dub" //type your WIFI information inside the quotes
-#define wifi_password "qwerty99"
+#define wifi_ssid "ssid" //type your WIFI information inside the quotes
+#define wifi_password "password"
 #define mqtt_server "192.168.1.135"
-#define mqtt_user "chris" 
-#define mqtt_password "Chrissutt0n"
+#define mqtt_user "username" 
+#define mqtt_password "password"
 #define mqtt_port 1883
 
 
